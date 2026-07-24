@@ -318,10 +318,18 @@
 <script>
 /*
   ---------- Location resolving ----------
-  No fixed "pick from this list" area field required. Location text is used as-is and
-  resolved to coordinates in two steps:
-    1. Fast local match against a table of well-known Kathmandu Valley neighborhoods.
-    2. Fallback: OpenStreetMap Nominatim geocoding queued at ~1 request/second.
+  No more fixed "pick from this list" area field. Whatever location text
+  a row/order carries (from the CSV or typed by hand) is used as-is and
+  resolved to real coordinates in two steps:
+    1. Fast local match against a table of well-known Kathmandu Valley
+       neighborhoods (instant, no network).
+    2. Fallback: OpenStreetMap Nominatim geocoding, scoped to the valley,
+       queued at ~1 request/second (their usage policy). Results are
+       cached in memory for the session so the same text is never looked
+       up twice.
+  This is a free public geocoder with light rate limits — good for
+  everyday dispatch volumes. For very high daily volume, swap
+  geocodeRemote() for a paid provider (Google/Mapbox) API key.
 */
 const LOCATION_GROUPS = {
   "Kathmandu — Core": {
@@ -372,7 +380,7 @@ const LOCATION_GROUPS = {
 };
 const KNOWN_AREAS = {};
 Object.values(LOCATION_GROUPS).forEach(g=>Object.entries(g).forEach(([k,v])=>KNOWN_AREAS[k]=v));
-const VALLEY_VIEWBOX = "85.15,27.85,85.55,27.55";
+const VALLEY_VIEWBOX = "85.15,27.85,85.55,27.55"; // left,top,right,bottom for Nominatim
 
 function populateAreaSelect(sel, defaultName){
   Object.entries(LOCATION_GROUPS).forEach(([groupName, places])=>{
@@ -388,7 +396,7 @@ function populateAreaSelect(sel, defaultName){
   });
 }
 
-const geocodeCache = new Map();
+const geocodeCache = new Map(); // normalized text -> {lat,lng} | 'failed'
 let geocodeQueue = [];
 let geocodeBusy = false;
 
@@ -415,7 +423,7 @@ async function geocodeRemote(text){
     if(data && data.length){
       return {lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon)};
     }
-  }catch(e){ /* handle network error gracefully */ }
+  }catch(e){ /* network/geocoder unavailable */ }
   return null;
 }
 
@@ -445,10 +453,10 @@ async function pumpQueue(){
     const remote = await geocodeRemote(order.loc);
     geocodeCache.set(key, remote || 'failed');
     applyResolution(order, remote, !remote);
-    await new Promise(r=>setTimeout(r, 1100));
+    await new Promise(r=>setTimeout(r, 1100)); // respect Nominatim's ~1 req/sec limit
   }
   geocodeBusy = false;
-  renderManifest();
+  renderManifest(); // clears the progress bar once the queue is fully drained
 }
 
 function applyResolution(order, coords, failed){
@@ -457,7 +465,7 @@ function applyResolution(order, coords, failed){
   renderManifest();
 }
 
-/* ---------- State ---------- */
+/* ---------- state ---------- */
 let orders = [];
 let orderSeq = 1;
 
@@ -478,24 +486,24 @@ const MAX_MANIFEST_ROWS = 200;
 let lastRoutes = [];
 const VEHICLE_COLORS = ["#E8590C","#2F6F4E","#C2410C","#0EA5A5","#B45309","#7C3AED","#DB2777","#0284C7"];
 
-/* ---------- Logo Upload Handler ---------- */
+/* ---------- logo upload (kept in memory only, no localStorage in artifacts) ---------- */
 function handleLogo(evt){
   const file = evt.target.files[0];
   if(!file) return;
   const reader = new FileReader();
   reader.onload = (e)=>{
-    document.getElementById('stamp-label').innerHTML = `<img src="${e.target.result}" alt="Logo">`;
+    document.getElementById('stamp-label').innerHTML = `<img src="${e.target.result}" alt="logo">`;
   };
   reader.readAsDataURL(file);
 }
 
-/* ---------- Depot Change Handler ---------- */
+/* ---------- depot ---------- */
 function handleDepotChange(){
   depot = currentDepot();
   drawMap(null);
 }
 
-/* Seed sample orders */
+/* seed with sample orders using raw, freeform location text (as if pulled from a CSV) */
 function seed(){
   [
     ["TCS123456NJ","","Kalimati, near the vegetable market"],
@@ -513,7 +521,7 @@ function addOrderObj(id, cust, loc){
   return order;
 }
 
-/* ---------- Bulk Import ---------- */
+/* ---------- bulk import ---------- */
 function findCol(headers, candidates){
   const lower = headers.map(h=>String(h).toLowerCase().trim());
   for(const cand of candidates){
@@ -686,7 +694,7 @@ function renderManifest(){
   setRail(orders.length ? (pendingCount ? 2 : 3) : 1);
 }
 
-/* ---------- Distance & Route ---------- */
+/* ---------- distance + route ---------- */
 function haversine(a,b){
   const R=6371, toRad = d=>d*Math.PI/180;
   const dLat = toRad(b.lat-a.lat), dLng = toRad(b.lng-a.lng);
@@ -806,7 +814,7 @@ function renderStops(routes, DEPOT){
   });
 }
 
-/* ---------- Map Drawing ---------- */
+/* ---------- map ---------- */
 function drawMap(routes){
   const svg = document.getElementById('map');
   svg.innerHTML = "";
