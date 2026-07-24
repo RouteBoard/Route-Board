@@ -492,7 +492,7 @@ function handleLogo(evt){
   if(!file) return;
   const reader = new FileReader();
   reader.onload = (e)=>{
-    document.getElementById('stamp-label').innerHTML = `<img src="${e.target.result}" alt="logo">`;
+    document.getElementById('stamp-label').innerHTML = 'https://raw.githubusercontent.com/RouteBoard/Route-Board/main/Route%20Board%20logo.png"${e.target.result}" alt="logo">`;
   };
   reader.readAsDataURL(file);
 }
