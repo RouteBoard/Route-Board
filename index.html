@@ -150,6 +150,12 @@
     font-size:11.5px;color:var(--warn);
   }
   .unresolved-note b{display:block;margin-bottom:6px;font-family:'Space Grotesk',sans-serif;}
+  .progress-track{
+    width:100%;height:6px;border-radius:4px;background:var(--paper-2);overflow:hidden;margin-top:8px;
+  }
+  .progress-fill{
+    height:100%;background:var(--stop);border-radius:4px;transition:width .25s ease;
+  }
 
   .map-card{padding:0;overflow:hidden;}
   .map-head{padding:18px 20px 0;}
@@ -450,6 +456,7 @@ async function pumpQueue(){
     await new Promise(r=>setTimeout(r, 1100)); // respect Nominatim's ~1 req/sec limit
   }
   geocodeBusy = false;
+  renderManifest(); // clears the progress bar once the queue is fully drained
 }
 
 function applyResolution(order, coords, failed){
@@ -667,13 +674,20 @@ function renderManifest(){
   const failedCount = orders.filter(o=>o.status==='failed').length;
   const pendingCount = orders.filter(o=>o.status==='pending').length;
   const noteDiv = document.getElementById('unresolved-note');
-  if(failedCount){
-    noteDiv.innerHTML = `<div class="unresolved-note"><b>${failedCount} order${failedCount>1?'s':''} couldn't be located</b>Add a nearby known area name to the location text and hit Retry, or type coordinates directly in the row above.</div>`;
-  } else if(pendingCount){
-    noteDiv.innerHTML = `<div class="unresolved-note" style="border-color:var(--slate);color:var(--slate);"><b>Locating ${pendingCount} order${pendingCount>1?'s':''}…</b>Free geocoding runs about one lookup per second — this finishes shortly.</div>`;
-  } else {
-    noteDiv.innerHTML = "";
+  let html = "";
+  if(pendingCount){
+    const doneCount = orders.length - pendingCount;
+    const pct = Math.round((doneCount / orders.length) * 100);
+    html += `<div class="unresolved-note" style="border-color:var(--slate);color:var(--slate);">
+      <b>Locating ${doneCount} of ${orders.length} orders… (${pct}%)</b>
+      Free geocoding runs about one lookup per second for addresses outside the known-area list — this finishes on its own.
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%;"></div></div>
+    </div>`;
   }
+  if(failedCount){
+    html += `<div class="unresolved-note"><b>${failedCount} order${failedCount>1?'s':''} couldn't be located</b>Add a nearby known area name to the location text and hit Retry, or type coordinates directly in the row above.</div>`;
+  }
+  noteDiv.innerHTML = html;
 
   document.getElementById('build-btn').disabled = resolved.length === 0;
   drawMap(null);
