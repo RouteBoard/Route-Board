@@ -234,26 +234,26 @@ const LICENSE_API_BASE = "https://script.google.com/macros/s/AKfycbzQDO--kB6Pz_F
 const LICENSE_STORAGE_KEY = "routeboard_license_key";
 const NOTIFY_EMAIL = "www.routeboard@gmail.com"; // ← your notification email
 
-function getStoredKey(){
-  // Check sessionStorage first (clears on close), then localStorage as fallback
-  try{
-    return sessionStorage.getItem(LICENSE_STORAGE_KEY)||localStorage.getItem(LICENSE_STORAGE_KEY)||"";
-  }catch(e){ return ""; }
+function getStoredKey() {
+  try {
+    return localStorage.getItem(LICENSE_STORAGE_KEY) || sessionStorage.getItem(LICENSE_STORAGE_KEY) || "";
+  } catch(e) {
+    return "";
+  }
 }
-function storeKey(key){
-  // sessionStorage = auto-clears when tab/browser is closed (auto logout)
-  try{ sessionStorage.setItem(LICENSE_STORAGE_KEY,key); }catch(e){}
-}
-function clearStoredKey(){
-  try{ sessionStorage.removeItem(LICENSE_STORAGE_KEY); }catch(e){}
-  try{ localStorage.removeItem(LICENSE_STORAGE_KEY); }catch(e){} // clear old too
-}
-// Auto logout: clear key when window/tab is closed
-window.addEventListener('beforeunload', ()=>{
-  try{ sessionStorage.removeItem(LICENSE_STORAGE_KEY); }catch(e){}
-});
-let currentLicenseKey = null;
 
+function storeKey(key) {
+  try {
+    localStorage.setItem(LICENSE_STORAGE_KEY, key);
+  } catch(e) {}
+}
+
+function clearStoredKey() {
+  try {
+    localStorage.removeItem(LICENSE_STORAGE_KEY);
+    sessionStorage.removeItem(LICENSE_STORAGE_KEY);
+  } catch(e) {}
+}
 async function validateKey(key,{silent}={}){
   if(!key) return {valid:false,reason:"empty"};
   // Built-in demo key — works without any backend
@@ -297,71 +297,39 @@ async function sendRegistrationNotification(company, email, phone){
     await fetch(url); // fire-and-forget
   }catch(e){ /* silent — don't block the user flow */ }
 }
+// Automatically restore session on page refresh
+function checkExistingLicense() {
+  const savedKey = getStoredKey();
+  if (!savedKey) return;
 
-async function submitRegistration(){
-  const company=document.getElementById('reg-company').value.trim();
-  const email=document.getElementById('reg-email').value.trim();
-  const phone=document.getElementById('reg-phone').value.trim();
-  const errEl=document.getElementById('register-error');
-  const statusEl=document.getElementById('register-status');
-  const btn=document.getElementById('register-submit');
-  errEl.textContent=""; statusEl.textContent="";
-  errEl.style.color="var(--warn)";
-
-  if(!company||!email){ errEl.textContent="Company name and email are required."; return; }
-  if(!email.includes('@')||!email.includes('.')){ errEl.textContent="Enter a valid email address."; return; }
-
-  btn.disabled=true; statusEl.textContent="Saving request…";
-
-  // Save request locally so admin can review
-  const request={company,email,phone,host:location.hostname,ts:new Date().toISOString()};
-  try{
-    const existing=JSON.parse(localStorage.getItem('rb_access_requests')||'[]');
-    const alreadyExists=existing.some(r=>r.email===email);
-    if(alreadyExists){
-      btn.disabled=false;
-      errEl.textContent="A request from this email is already pending.";
-      return;
-    }
-    existing.push(request);
-    localStorage.setItem('rb_access_requests',JSON.stringify(existing));
-  }catch(e){}
-
-  btn.disabled=false;
-  statusEl.textContent="";
-  errEl.style.color="var(--stop)";
-  errEl.textContent="Request received! We will email your license key to "+email+" shortly.";
-
-  // Open mailto so the admin gets notified immediately
-  const subject=encodeURIComponent("RouteBoard Access Request: "+company);
-  const body=encodeURIComponent(
-    "New RouteBoard access request:\n\n"+
-    "Company: "+company+"\n"+
-    "Email: "+email+"\n"+
-    "Phone: "+(phone||"—")+"\n"+
-    "Host: "+location.hostname+"\n"+
-    "Time: "+new Date().toLocaleString()+"\n\n"+
-    "Reply to this email with their license key."
-  );
-  setTimeout(()=>{
-    window.open("mailto:"+NOTIFY_EMAIL+"?subject="+subject+"&body="+body,"_blank");
-  },800);
-
-  // Clear form after 2 seconds
-  setTimeout(()=>{
-    document.getElementById('reg-company').value="";
-    document.getElementById('reg-email').value="";
-    document.getElementById('reg-phone').value="";
-    errEl.textContent="";
-  },4000);
+  validateKey(savedKey, { silent: true })
+    .then(result => {
+      if (result && result.valid) {
+        // Automatically hide the gate overlay if key is valid
+        const gate = document.getElementById("license-gate") || document.getElementById("gate-overlay");
+        if (gate) gate.classList.add("hidden");
+        
+        const appRoot = document.getElementById("app-root");
+        if (appRoot) appRoot.classList.remove("locked");
+      } else {
+        // Key is expired or revoked
+        clearStoredKey();
+      }
+    })
+    .catch(err => {
+      console.warn("Session check failed:", err);
+    });
 }
 
-function unlockApp(){
+// Run as soon as the DOM is loaded
+document.addEventListener("DOMContentLoaded", () => {
+  checkExistingLicense();
+});
+
+function unlockApp() {
   document.getElementById('license-gate').classList.add('hidden');
   document.getElementById('app-root').classList.remove('locked');
 }
-function lockApp(message){
-  document.getElementById('app-root').classList.add('locked');
   document.getElementById('license-gate').classList.remove('hidden');
   showGateView('login');
   document.getElementById('license-error').textContent=message||"";
