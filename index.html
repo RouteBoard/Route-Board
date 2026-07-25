@@ -128,12 +128,11 @@
       <div class="gate-view hidden" id="gate-view-register">
         <h2>Request access</h2>
         <p>Tell us who you are and we'll set your company up with a license key.</p>
-        <div class="field"><label for="reg-company">Company name</label><input id="reg-company" placeholder="e.g. Acme Logistics"></div>
-        <div class="field"><label for="reg-email">Contact email</label><input id="reg-email" placeholder="you@company.com"></div>
-        <div class="field"><label for="reg-phone">Phone (optional)</label><input id="reg-phone" placeholder="e.g. +977 98…"></div>
-        <div class="gate-error" id="register-error"></div>
-        <button class="btn-signal" style="margin-top:2px;" id="register-submit" onclick="submitRegistration()">Request access</button>
-        <div class="gate-status" id="register-status"></div>
+        <div style="margin-top: 10px; font-size: 14px; line-height: 1.8; color: var(--fg, #fff);">
+          <div><strong>Email:</strong> <a href="mailto:www.routeboard@gmail.com" style="color: #4a9eff; text-decoration: underline;">www.routeboard@gmail.com</a></div>
+          <div><strong>WhatsApp / Call:</strong> <a href="https://wa.me/9779747961784" style="color: #4a9eff; text-decoration: underline;">+977 9747961784</a></div>
+          <div><strong>Location:</strong> Kathmandu, Nepal</div>
+        </div>
         <button class="gate-toggle" onclick="showGateView('login')">← Already have a key?</button>
       </div>
     </div>
