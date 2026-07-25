@@ -229,6 +229,13 @@
   .gate-card .gate-status{
     color:var(--slate);font-size:11px;margin-top:14px;font-family:'IBM Plex Mono',monospace;
   }
+  .gate-toggle{
+    background:none;border:none;color:var(--signal);font-family:'Inter',sans-serif;
+    font-size:12px;font-weight:600;cursor:pointer;margin-top:16px;padding:4px;text-decoration:underline;
+  }
+  .gate-view.hidden{display:none;}
+  .gate-card .field{text-align:left;margin-bottom:10px;}
+  .gate-card label{font-size:10.5px;}
   #app-root.locked{filter:blur(4px);pointer-events:none;user-select:none;}
 </style>
 </head>
@@ -237,12 +244,37 @@
   <div id="license-gate">
     <div class="gate-card">
       <div class="stamp" style="cursor:default;">RB</div>
-      <h2>Enter your license key</h2>
-      <p>RouteBoard is licensed per company. Enter the key you were given at checkout to unlock dispatching.</p>
-      <input id="license-key-input" placeholder="e.g. RB-XXXX-XXXX-XXXX" autocomplete="off" onkeydown="if(event.key==='Enter') submitLicenseKey()">
-      <div class="gate-error" id="license-error"></div>
-      <button class="btn-signal" style="margin-top:2px;" id="license-submit" onclick="submitLicenseKey()">Unlock RouteBoard</button>
-      <div class="gate-status" id="license-status"></div>
+
+      <div class="gate-view" id="gate-view-login">
+        <h2>Enter your license key</h2>
+        <p>RouteBoard is licensed per company. Enter the key you were given at checkout to unlock dispatching.</p>
+        <input id="license-key-input" placeholder="e.g. RB-XXXX-XXXX-XXXX" autocomplete="off" onkeydown="if(event.key==='Enter') submitLicenseKey()">
+        <div class="gate-error" id="license-error"></div>
+        <button class="btn-signal" style="margin-top:2px;" id="license-submit" onclick="submitLicenseKey()">Unlock RouteBoard</button>
+        <div class="gate-status" id="license-status"></div>
+        <button class="gate-toggle" onclick="showGateView('register')">New company? Request access →</button>
+      </div>
+
+      <div class="gate-view hidden" id="gate-view-register">
+        <h2>Request access</h2>
+        <p>Tell us who you are and we'll set your company up with a license key.</p>
+        <div class="field">
+          <label for="reg-company">Company name</label>
+          <input id="reg-company" placeholder="e.g. Acme Logistics">
+        </div>
+        <div class="field">
+          <label for="reg-email">Contact email</label>
+          <input id="reg-email" placeholder="you@company.com">
+        </div>
+        <div class="field">
+          <label for="reg-phone">Phone (optional)</label>
+          <input id="reg-phone" placeholder="e.g. +977 98…">
+        </div>
+        <div class="gate-error" id="register-error"></div>
+        <button class="btn-signal" style="margin-top:2px;" id="register-submit" onclick="submitRegistration()">Request access</button>
+        <div class="gate-status" id="register-status"></div>
+        <button class="gate-toggle" onclick="showGateView('login')">← Already have a key?</button>
+      </div>
     </div>
   </div>
 
@@ -420,6 +452,60 @@ async function validateKey(key, { silent } = {}){
   }
 }
 
+function showGateView(which){
+  document.getElementById('gate-view-login').classList.toggle('hidden', which !== 'login');
+  document.getElementById('gate-view-register').classList.toggle('hidden', which !== 'register');
+  document.getElementById('license-error').textContent = "";
+  document.getElementById('register-error').textContent = "";
+}
+
+async function submitRegistration(){
+  const company = document.getElementById('reg-company').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  const errEl = document.getElementById('register-error');
+  const statusEl = document.getElementById('register-status');
+  const btn = document.getElementById('register-submit');
+  errEl.textContent = ""; statusEl.textContent = "";
+
+  if(!company || !email){ errEl.textContent = "Company name and email are required."; return; }
+
+  btn.disabled = true; statusEl.textContent = "Sending request…";
+  try{
+    const url = `${LICENSE_API_BASE}?action=register`
+      + `&company=${encodeURIComponent(company)}&email=${encodeURIComponent(email)}`
+      + `&phone=${encodeURIComponent(phone)}&host=${encodeURIComponent(location.hostname)}`;
+    const res = await fetch(url);
+    const result = await res.json();
+    btn.disabled = false;
+
+    if(result.ok){
+      statusEl.textContent = "";
+      const msg = result.status === "active"
+        ? "You're approved — check your email for your license key."
+        : "Request received. We'll email your license key once it's approved.";
+      errEl.style.color = "var(--stop)";
+      errEl.textContent = msg;
+      document.getElementById('reg-company').value = "";
+      document.getElementById('reg-email').value = "";
+      document.getElementById('reg-phone').value = "";
+    } else {
+      errEl.style.color = "var(--warn)";
+      const reasons = {
+        missing_fields: "Company name and email are required.",
+        bad_email: "That doesn't look like a valid email address.",
+        already_active: "This email already has an active key — check your inbox, or use the login screen.",
+        already_pending: "A request for this email is already pending approval.",
+      };
+      errEl.textContent = reasons[result.reason] || "Couldn't submit the request — try again shortly.";
+    }
+  }catch(e){
+    btn.disabled = false;
+    errEl.style.color = "var(--warn)";
+    errEl.textContent = "Couldn't reach the license server — check your connection and try again.";
+  }
+}
+
 function unlockApp(){
   document.getElementById('license-gate').classList.add('hidden');
   document.getElementById('app-root').classList.remove('locked');
@@ -428,6 +514,7 @@ function unlockApp(){
 function lockApp(message){
   document.getElementById('app-root').classList.add('locked');
   document.getElementById('license-gate').classList.remove('hidden');
+  showGateView('login');
   document.getElementById('license-error').textContent = message || "";
 }
 
@@ -452,6 +539,7 @@ async function submitLicenseKey(){
   } else {
     const reasons = {
       not_found: "That key wasn't recognized.",
+      pending: "That key is still awaiting approval — you'll get an email once it's active.",
       expired: "That key has expired — contact billing to renew.",
       revoked: "That key is no longer active.",
       network_error: "Couldn't reach the license server — check your connection and try again.",
