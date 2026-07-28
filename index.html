@@ -184,9 +184,9 @@
     height:100%;background:var(--stop);border-radius:4px;transition:width .25s ease;
   }
 
-  .map-card{padding:0;overflow:hidden;}
-  .map-head{padding:18px 20px 0;}
-  svg{display:block;width:100%;height:auto;background:var(--map-bg);}
+  .map-card{padding:0;overflow:hidden;position:relative;}
+  .map-head{padding:18px 20px 0;display:flex;align-items:center;gap:12px;justify-content:space-between}
+  svg{display:block;width:100%;height:auto;background:var(--map-bg);touch-action:none;}
   .map-note{padding:12px 20px 18px;font-size:11.5px;color:var(--slate);font-family:'IBM Plex Mono',monospace;}
 
   .stops{display:flex;flex-direction:column;gap:10px;}
@@ -220,6 +220,19 @@
   }
   .ready-banner h3{margin:0 0 2px;font-family:'Space Grotesk',sans-serif;font-size:15px;}
   .ready-banner p{margin:0;font-size:12px;opacity:0.85;font-family:'IBM Plex Mono',monospace;}
+
+  /* Map controls */
+  .map-controls{display:flex;gap:8px;align-items:center}
+  .map-controls button{padding:6px 8px;font-size:13px;border-radius:6px}
+  .map-zoom-level{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--paper);background:var(--ink);padding:6px 8px;border-radius:6px}
+
+  .map-tooltip{
+    position:absolute;pointer-events:none;background:rgba(0,0,0,0.8);color:#fff;padding:6px 8px;border-radius:6px;font-size:12px;font-family:'IBM Plex Mono',monospace;transform:translate(-50%, -120%);white-space:nowrap;z-index:50;display:none;
+  }
+
+  /* panning cursor */
+  .panning{cursor:grabbing;}
+  .pan-grab{cursor:grab;}
 </style>
 </head>
 <body>
@@ -231,7 +244,7 @@
       <div class="brand-mark">
         <div class="stamp-wrap">
           <label class="stamp" id="stamp-label" for="logo-input" title="Click to change your logo">
-            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAIAAABC8jL9AACmKUlEQVR42ux9d5xcxZX1uVUvdJ48oywkESSBRBZgwGTjwAIGA15jcMRhHVgnnO1dr+11wgnj/LGLwQFj1mDjgAkmB5GDyALlMHl6Or1U9/ujXueeURpJM1LX9s8rJvR0V9epe+65iZgZzbX7FjMzs1JK/6eUkojqfyybzQ4MDPT29m7evHnz5s2bNm3q7e3t7+8fHBwcGRlJp9PZbDaXyzmO47qu7/u+75eeE4AQwjAMwzAsy7JtOxaLxePxVCrV0tLS3t7e2dnZ3d09bdq0np6enp6e7u7ujo6OeDze8NUGQVB6TiJq+Gqba5ctagJ41y+llMYtEUkpa747PDy8fv36VatWrVrVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVsVs000" />
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAIAAABC8jL9AACmKUlEQVR42ux9d5xcxZX1uVUvdJ48oywkESSBRBZgwGTjwAIGA15jcMRhHVgnnO1dr+11wgnj/LGLwQFj1mDjgAkmB5GDyALlMHl6Or1U9/uj[...]" alt="logo">
             <input class="logo-input" id="logo-input" type="file" accept="image/*">
             <span class="logo-edit-hint">✎</span>
           </label>
@@ -281,16 +294,30 @@
     <div>
       <div class="card map-card">
         <div class="map-head">
-          <h2><span class="n">2</span> Map Preview</h2>
+          <div>
+            <h2><span class="n">2</span> Map Preview</h2>
+          </div>
+          <div class="map-controls">
+            <button id="btn-zoom-in" title="Zoom in">＋</button>
+            <button id="btn-zoom-out" title="Zoom out">－</button>
+            <button id="btn-reset" title="Reset view">⤾</button>
+            <div class="map-zoom-level" id="zoom-level">100%</div>
+          </div>
         </div>
-        <svg viewBox="0 0 400 240" id="map-svg">
-          <rect width="400" height="240" fill="#16241D"/>
-          <path d="M 20 120 Q 100 80 200 120 T 380 120" stroke="#3A4F41" stroke-width="2" fill="none"/>
-          <path d="M 120 20 Q 160 100 220 220" stroke="#3A4F41" stroke-width="2" fill="none"/>
-          <circle cx="200" cy="120" r="6" fill="#E8590C"/>
-          <text x="210" y="124" fill="#EEEBE2" font-size="11" font-family="Space Grotesk">Central Depot</text>
-        </svg>
-        <div class="map-note">Interactive Kathmandu Valley dispatch canvas.</div>
+        <!-- viewport group added so we can transform pan/zoom nicely -->
+        <div style="width:100%;height:100%;">
+          <svg viewBox="0 0 400 240" id="map-svg">
+            <g id="viewport">
+              <rect width="400" height="240" fill="#16241D"/>
+              <path d="M 20 120 Q 100 80 200 120 T 380 120" stroke="#3A4F41" stroke-width="2" fill="none"/>
+              <path d="M 120 20 Q 160 100 220 220" stroke="#3A4F41" stroke-width="2" fill="none"/>
+              <circle cx="200" cy="120" r="6" fill="#E8590C" data-label="Central Depot" class="map-point"/>
+              <!-- Existing visible text removed to keep map clean; will show on hover via tooltip -->
+            </g>
+          </svg>
+        </div>
+        <div class="map-note">Interactive Kathmandu Valley dispatch canvas. Use mouse wheel to zoom, drag to pan, or use the buttons.</div>
+        <div class="map-tooltip" id="map-tooltip"></div>
       </div>
 
       <div class="ready-banner" id="ready-banner">
@@ -304,5 +331,173 @@
   </div>
 
 </div>
+
+<script>
+// Pan/Zoom implementation for the SVG map
+(function(){
+  const svg = document.getElementById('map-svg');
+  const viewport = document.getElementById('viewport');
+  const tooltip = document.getElementById('map-tooltip');
+  const zoomLevel = document.getElementById('zoom-level');
+  let state = {
+    scale: 1,
+    minScale: 0.3,
+    maxScale: 8,
+    translateX: 0,
+    translateY: 0,
+    isPanning: false,
+    startX: 0,
+    startY: 0
+  };
+
+  function applyTransform(){
+    viewport.setAttribute('transform', `translate(${state.translateX} ${state.translateY}) scale(${state.scale})`);
+    zoomLevel.textContent = Math.round(state.scale * 100) + '%';
+  }
+
+  function getSvgPoint(clientX, clientY){
+    const pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if(!ctm) return {x: clientX, y: clientY};
+    return pt.matrixTransform(ctm.inverse());
+  }
+
+  // Wheel to zoom (centered at cursor)
+  svg.addEventListener('wheel', function(e){
+    e.preventDefault();
+    const delta = -e.deltaY; // positive means zoom in
+    const zoomFactor = Math.exp(delta * 0.0012); // smooth
+    const rect = svg.getBoundingClientRect();
+    const svgX = e.clientX - rect.left;
+    const svgY = e.clientY - rect.top;
+
+    // convert to svg coordinates relative to viewport
+    const beforeZoom = getSvgPoint(e.clientX, e.clientY);
+
+    // update scale
+    const newScale = Math.max(state.minScale, Math.min(state.maxScale, state.scale * zoomFactor));
+    const scaleRatio = newScale / state.scale;
+    state.scale = newScale;
+
+    // adjust translate so the point under cursor stays fixed
+    state.translateX = (state.translateX - beforeZoom.x) * scaleRatio + beforeZoom.x;
+    state.translateY = (state.translateY - beforeZoom.y) * scaleRatio + beforeZoom.y;
+
+    applyTransform();
+  }, { passive: false });
+
+  // Mouse pan
+  svg.addEventListener('mousedown', function(e){
+    if(e.button !== 0) return;
+    state.isPanning = true;
+    svg.classList.add('panning');
+    state.startX = e.clientX;
+    state.startY = e.clientY;
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!state.isPanning) return;
+    const dx = (e.clientX - state.startX) / state.scale;
+    const dy = (e.clientY - state.startY) / state.scale;
+    state.startX = e.clientX;
+    state.startY = e.clientY;
+    state.translateX += dx;
+    state.translateY += dy;
+    applyTransform();
+  });
+  window.addEventListener('mouseup', function(e){
+    if(state.isPanning){
+      state.isPanning = false;
+      svg.classList.remove('panning');
+    }
+  });
+
+  // Touch pan (single finger)
+  let touchLast = null;
+  svg.addEventListener('touchstart', function(e){
+    if(e.touches.length === 1){
+      const t = e.touches[0];
+      touchLast = {x: t.clientX, y: t.clientY};
+    }
+  }, { passive: true });
+  svg.addEventListener('touchmove', function(e){
+    if(e.touches.length === 1 && touchLast){
+      const t = e.touches[0];
+      const dx = (t.clientX - touchLast.x) / state.scale;
+      const dy = (t.clientY - touchLast.y) / state.scale;
+      touchLast = {x: t.clientX, y: t.clientY};
+      state.translateX += dx;
+      state.translateY += dy;
+      applyTransform();
+    }
+  }, { passive: true });
+  svg.addEventListener('touchend', function(e){ touchLast = null; });
+
+  // Buttons
+  document.getElementById('btn-zoom-in').addEventListener('click', function(){
+    zoomAtCenter(1.2);
+  });
+  document.getElementById('btn-zoom-out').addEventListener('click', function(){
+    zoomAtCenter(1/1.2);
+  });
+  document.getElementById('btn-reset').addEventListener('click', function(){
+    state.scale = 1; state.translateX = 0; state.translateY = 0; applyTransform();
+  });
+
+  function zoomAtCenter(factor){
+    const rect = svg.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+    const before = getSvgPoint(cx, cy);
+    const newScale = Math.max(state.minScale, Math.min(state.maxScale, state.scale * factor));
+    const scaleRatio = newScale / state.scale;
+    state.scale = newScale;
+    state.translateX = (state.translateX - before.x) * scaleRatio + before.x;
+    state.translateY = (state.translateY - before.y) * scaleRatio + before.y;
+    applyTransform();
+  }
+
+  // Tooltip behavior: show labels on hover only
+  function showTooltip(evt, text){
+    tooltip.style.display = 'block';
+    tooltip.textContent = text;
+    positionTooltip(evt.clientX, evt.clientY);
+  }
+  function positionTooltip(clientX, clientY){
+    const wrap = document.querySelector('.map-card');
+    const rect = wrap.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  function hideTooltip(){ tooltip.style.display = 'none'; }
+
+  function attachHoverToPoints(){
+    const points = svg.querySelectorAll('.map-point');
+    points.forEach(pt => {
+      const label = pt.getAttribute('data-label') || pt.getAttribute('title');
+      if(!label) return;
+      // show tooltip on pointerenter/move, hide on leave
+      pt.addEventListener('pointerenter', function(e){ showTooltip(e, label); });
+      pt.addEventListener('pointermove', function(e){ positionTooltip(e.clientX, e.clientY); });
+      pt.addEventListener('pointerleave', function(){ hideTooltip(); });
+      // for accessibility, transfer title to aria-label
+      pt.setAttribute('aria-label', label);
+      pt.removeAttribute('title');
+    });
+  }
+
+  // initialize
+  applyTransform();
+  attachHoverToPoints();
+
+  // If you later render stops dynamically into the viewport, call attachHoverToPoints() again.
+  window.RouteBoard = window.RouteBoard || {};
+  window.RouteBoard.attachHoverToPoints = attachHoverToPoints;
+  window.RouteBoard.setView = function({scale,tx,ty}){ if(scale!=null) state.scale=scale; if(tx!=null) state.translateX=tx; if(ty!=null) state.translateY=ty; applyTransform(); };
+
+})();
+</script>
 </body>
 </html>
